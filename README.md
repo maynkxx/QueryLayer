@@ -20,7 +20,7 @@ https://querylayer-f6oysgzwxrbybz8lezcrmr.streamlit.app/
 - Groq API (LLaMA 3.1 8B)
 
 ## Run locally
-git clone https://github.com/maynkxx/rag-chatbot
+git clone https://github.com/maynkxx/QueryLayer
 cd rag-chatbot
 pip install -r requirements.txt
 echo "GROQ_API_KEY=your_key" > .env
