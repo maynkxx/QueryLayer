@@ -9,12 +9,22 @@ from groq import Groq
 import os
 from dotenv import load_dotenv
 
+import streamlit as st
+
 load_dotenv()
 
+# Try local .env first
 api_key = os.getenv("GROQ_API_KEY")
-if not api_key:
-    raise ValueError("❌ GROQ_API_KEY not found. Please check your .env file.")
 
+# Fallback to Streamlit secrets (for deployed app)
+if not api_key:
+    api_key = st.secrets.get("GROQ_API_KEY")
+
+# Final check
+if not api_key:
+    raise ValueError("❌ GROQ_API_KEY not found in .env or Streamlit secrets.")
+
+# Initialize client
 client = Groq(api_key=api_key)
 
 # Cache the embedding model so it's not reloaded every time
