@@ -8,76 +8,72 @@ from langchain_community.vectorstores import FAISS
 from groq import Groq
 import os
 from dotenv import load_dotenv
-import streamlit as st
 
-# 🔹 Load environment variables
 load_dotenv()
 
-# 🔹 API key handling (local + deployed)
-api_key = os.getenv("GROQ_API_KEY")
+# API key — works for both local and Streamlit Cloud
+def get_api_key():
+    key = os.getenv("GROQ_API_KEY")
+    if not key:
+        try:
+            import streamlit as st
+            key = st.secrets.get("GROQ_API_KEY")
+        except Exception:
+            pass
+    if not key:
+        raise ValueError("❌ GROQ_API_KEY not found in .env or Streamlit secrets.")
+    return key
 
-if not api_key:
-    api_key = st.secrets.get("GROQ_API_KEY")
+client = Groq(api_key=get_api_key())
 
-if not api_key:
-    raise ValueError("❌ GROQ_API_KEY not found in .env or Streamlit secrets.")
-
-# 🔹 Initialize Groq client
-client = Groq(api_key=api_key)
-
-# 🔹 Cache embeddings
+# Cache embedding model globally
 _embeddings = None
 
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
         print("🔄 Loading embedding model...")
-        _embeddings = HuggingFaceEmbeddings(
-            model_name="all-MiniLM-L6-v2"
-        )
+        _embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         print("✅ Embedding model loaded")
     return _embeddings
 
 
-# 🔹 Build vector store
 def build_vectorstore(pdf_path):
-    loader = PyMuPDFLoader(pdf_path)
-    docs = loader.load()
-    print(f"✅ Loaded {len(docs)} pages")
+    try:
+        loader = PyMuPDFLoader(pdf_path)
+        docs = loader.load()
+        print(f"✅ Loaded {len(docs)} pages")
 
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=150
-    )
-    chunks = splitter.split_documents(docs)
-    print(f"✅ Created {len(chunks)} chunks")
+        if not docs:
+            print("❌ No pages loaded from PDF!")
+            return None
 
-    vectorstore = FAISS.from_documents(chunks, get_embeddings())
-    print("✅ Vector store created successfully")
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=150
+        )
+        chunks = splitter.split_documents(docs)
+        print(f"✅ Created {len(chunks)} chunks")
+        print(f"📄 Sample chunk:\n{chunks[0].page_content[:300]}")
 
-    return vectorstore
+        vectorstore = FAISS.from_documents(chunks, get_embeddings())
+        print("✅ Vector store created")
+
+        # Sanity check — confirm retrieval works right after building
+        test_results = vectorstore.similarity_search("document", k=1)
+        print(f"✅ Sanity check passed — got {len(test_results)} result(s)")
+
+        return vectorstore
+
+    except Exception as e:
+        print(f"❌ Error in build_vectorstore: {str(e)}")
+        return None
 
 
-# 🔹 Get answer
 def get_answer(question, vectorstore):
+    # Simple similarity search — NO score threshold (that was the bug)
+    docs = vectorstore.similarity_search(question, k=4)
 
-    # 🔍 Retrieve relevant chunks (with filtering)
-    retriever = vectorstore.as_retriever(
-        search_type="similarity_score_threshold",
-        search_kwargs={"k": 4, "score_threshold": 0.5}
-    )
-
-    docs = retriever.invoke(question)
-
-    # 🚨 Guard: no docs
-    if not docs:
-        return "⚠️ Could not find relevant content in the document. Try rephrasing your question.", docs
-
-    # 🧠 Handle summary-type questions
-    if "what is the pdf about" in question.lower() or "summary" in question.lower():
-        docs = docs[:6]
-
-    # 🔍 Debug logs
     print(f"\n{'='*50}")
     print(f"Question: {question}")
     print(f"Docs retrieved: {len(docs)}")
@@ -86,26 +82,26 @@ def get_answer(question, vectorstore):
         print(doc.page_content[:200])
     print(f"{'='*50}\n")
 
-    # 🧾 Build context
-    context = "\n\n".join(
-        [d.page_content.strip() for d in docs if d.page_content]
-    )
+    if not docs:
+        return "⚠️ Could not retrieve any content from the document.", []
 
-    # 🚨 Guard: empty context
-    if not context.strip():
-        return "⚠️ The retrieved content appears to be empty. Please try a different question.", docs
+    context = "\n\n".join([d.page_content.strip() for d in docs])
 
-    # 🧠 Strict prompt
-    prompt = f"""
-You are a strict document-based assistant.
+    # Detect summary-type questions and fetch more chunks
+    summary_keywords = ["summary", "about", "what is this", "overview", "describe"]
+    is_summary = any(kw in question.lower() for kw in summary_keywords)
 
-Rules:
-- Answer ONLY using the provided context.
-- If the answer is not clearly present in the context, say exactly:
-  "The document does not contain enough information."
-- Do NOT guess.
-- Do NOT use external knowledge.
-- If the question is general (like summary), summarize ONLY from the context.
+    if is_summary:
+        extra_docs = vectorstore.similarity_search(question, k=8)
+        context = "\n\n".join([d.page_content.strip() for d in extra_docs])
+
+    prompt = f"""You are a helpful document assistant.
+
+Instructions:
+- Answer using ONLY the context provided below.
+- If the question asks for a summary or overview, summarize the key points from the context.
+- If the answer is not in the context, say: "The document does not contain enough information to answer this."
+- Be clear, structured, and concise.
 
 Context:
 \"\"\"
@@ -114,16 +110,15 @@ Context:
 
 Question: {question}
 
-Answer:
-"""
+Answer:"""
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",  # 🔥 faster + more stable
+            model="llama-3.1-8b-instant",
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a strict document assistant. Only answer from context."
+                    "content": "You are a helpful assistant that answers questions strictly from the provided document context."
                 },
                 {
                     "role": "user",
@@ -133,7 +128,6 @@ Answer:
             temperature=0.2,
             max_tokens=1024
         )
-
         answer = response.choices[0].message.content.strip()
 
     except Exception as e:
