@@ -8,64 +8,76 @@ from langchain_community.vectorstores import FAISS
 from groq import Groq
 import os
 from dotenv import load_dotenv
-
 import streamlit as st
 
+# 🔹 Load environment variables
 load_dotenv()
 
-# Try local .env first
+# 🔹 API key handling (local + deployed)
 api_key = os.getenv("GROQ_API_KEY")
 
-# Fallback to Streamlit secrets (for deployed app)
 if not api_key:
     api_key = st.secrets.get("GROQ_API_KEY")
 
-# Final check
 if not api_key:
     raise ValueError("❌ GROQ_API_KEY not found in .env or Streamlit secrets.")
 
-# Initialize client
+# 🔹 Initialize Groq client
 client = Groq(api_key=api_key)
 
-# Cache the embedding model so it's not reloaded every time
+# 🔹 Cache embeddings
 _embeddings = None
 
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
         print("🔄 Loading embedding model...")
-        _embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        _embeddings = HuggingFaceEmbeddings(
+            model_name="all-MiniLM-L6-v2"
+        )
         print("✅ Embedding model loaded")
     return _embeddings
 
 
+# 🔹 Build vector store
 def build_vectorstore(pdf_path):
-    # Load PDF
     loader = PyMuPDFLoader(pdf_path)
     docs = loader.load()
     print(f"✅ Loaded {len(docs)} pages")
 
-    # Chunk the text
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50
+        chunk_size=1000,
+        chunk_overlap=150
     )
     chunks = splitter.split_documents(docs)
     print(f"✅ Created {len(chunks)} chunks")
 
-    # Build vector store
     vectorstore = FAISS.from_documents(chunks, get_embeddings())
     print("✅ Vector store created successfully")
 
     return vectorstore
 
 
+# 🔹 Get answer
 def get_answer(question, vectorstore):
-    # Retrieve relevant chunks
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    # 🔍 Retrieve relevant chunks (with filtering)
+    retriever = vectorstore.as_retriever(
+        search_type="similarity_score_threshold",
+        search_kwargs={"k": 4, "score_threshold": 0.5}
+    )
+
     docs = retriever.invoke(question)
 
-    # ── DEBUG (check your terminal) ──────────────────────────
+    # 🚨 Guard: no docs
+    if not docs:
+        return "⚠️ Could not find relevant content in the document. Try rephrasing your question.", docs
+
+    # 🧠 Handle summary-type questions
+    if "what is the pdf about" in question.lower() or "summary" in question.lower():
+        docs = docs[:6]
+
+    # 🔍 Debug logs
     print(f"\n{'='*50}")
     print(f"Question: {question}")
     print(f"Docs retrieved: {len(docs)}")
@@ -73,43 +85,45 @@ def get_answer(question, vectorstore):
         print(f"\nChunk {i+1} (page {doc.metadata.get('page', '?')}):")
         print(doc.page_content[:200])
     print(f"{'='*50}\n")
-    # ─────────────────────────────────────────────────────────
 
-    # Guard: if nothing retrieved
-    if not docs:
-        return "⚠️ Could not find relevant content in the document. Try rephrasing your question.", docs
+    # 🧾 Build context
+    context = "\n\n".join(
+        [d.page_content.strip() for d in docs if d.page_content]
+    )
 
-    context = "\n\n".join([d.page_content for d in docs])
-
-    # Guard: if context is empty
+    # 🚨 Guard: empty context
     if not context.strip():
         return "⚠️ The retrieved content appears to be empty. Please try a different question.", docs
 
-    prompt = f"""You are a helpful assistant that answers questions based on the provided document context.
+    # 🧠 Strict prompt
+    prompt = f"""
+You are a strict document-based assistant.
 
-Instructions:
-- Answer based ONLY on the context provided below.
-- If the context contains relevant information, use it to give a detailed answer.
-- If the context does not contain enough information, say "The document does not contain enough information to answer this question."
-- Do NOT say "I don't know" if there is relevant information in the context.
-- Be clear, helpful, and concise.
+Rules:
+- Answer ONLY using the provided context.
+- If the answer is not clearly present in the context, say exactly:
+  "The document does not contain enough information."
+- Do NOT guess.
+- Do NOT use external knowledge.
+- If the question is general (like summary), summarize ONLY from the context.
 
-Context from document:
+Context:
 \"\"\"
 {context}
 \"\"\"
 
 Question: {question}
 
-Answer:"""
+Answer:
+"""
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",  # 🔥 faster + more stable
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful document assistant. Always try to answer from the provided context."
+                    "content": "You are a strict document assistant. Only answer from context."
                 },
                 {
                     "role": "user",
@@ -119,6 +133,7 @@ Answer:"""
             temperature=0.2,
             max_tokens=1024
         )
+
         answer = response.choices[0].message.content.strip()
 
     except Exception as e:
