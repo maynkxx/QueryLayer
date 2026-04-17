@@ -1,4 +1,15 @@
+# Environment variables
 .env
-.DS_Store
+
+# Virtual environment
 venv/
+
+# Python cache
 __pycache__/
+*.pyc
+
+# Mac system files
+.DS_Store
+
+# Streamlit cache
+.streamlit/

@@ -1,16 +1,18 @@
-# rag_engine.py
-
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
+from sentence_transformers import CrossEncoder
 from groq import Groq
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── API Key ────────────────────────────────────────────────
+_embeddings = None
+_client = None
+_reranker = None
+
 def get_api_key():
     key = os.getenv("GROQ_API_KEY")
     if not key:
@@ -23,159 +25,122 @@ def get_api_key():
         raise ValueError("GROQ_API_KEY not found.")
     return key
 
-client = Groq(api_key=get_api_key())
-
-# ── Embedding Model (cached globally) ─────────────────────
-_embeddings = None
+def get_client():
+    global _client
+    if _client is None:
+        _client = Groq(api_key=get_api_key())
+    return _client
 
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
-        print("Loading embedding model...")
-        # multilingual model — supports 50+ languages
         _embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+            model_name="BAAI/bge-base-en-v1.5"
         )
-        print("Multilingual embedding model loaded")
     return _embeddings
 
+def get_reranker():
+    global _reranker
+    if _reranker is None:
+        _reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+    return _reranker
 
-# ── Build vectorstore from ONE pdf ────────────────────────
+def rerank_docs(question, docs):
+    reranker = get_reranker()
+    pairs = [[question, d.page_content] for d in docs]
+    scores = reranker.predict(pairs)
+    scored_docs = list(zip(docs, scores))
+    scored_docs.sort(key=lambda x: x[1], reverse=True)
+    return [doc for doc, _ in scored_docs[:3]]
+
 def build_vectorstore_from_file(pdf_path):
-    try:
-        loader = PyMuPDFLoader(pdf_path)
-        docs = loader.load()
-        print(f"Loaded {len(docs)} pages from {pdf_path}")
+    loader = PyMuPDFLoader(pdf_path)
+    docs = loader.load()
+    if not docs:
+        raise ValueError("No documents loaded")
 
-        if not docs:
-            print("No pages loaded!")
-            return None
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=150
+    )
 
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=150
-        )
-        chunks = splitter.split_documents(docs)
-        print(f"Created {len(chunks)} chunks")
+    chunks = splitter.split_documents(docs)
+    return FAISS.from_documents(chunks, get_embeddings())
 
-        vectorstore = FAISS.from_documents(chunks, get_embeddings())
-        return vectorstore
-
-    except Exception as e:
-        print(f"Error processing {pdf_path}: {e}")
-        return None
-
-
-# ── Build MERGED vectorstore from MULTIPLE pdfs ───────────
 def build_combined_vectorstore(pdf_paths):
-    """
-    Accepts a list of PDF file paths.
-    Merges all into one FAISS vectorstore.
-    """
     combined = None
-
     for path in pdf_paths:
         vs = build_vectorstore_from_file(path)
-        if vs is None:
-            continue
         if combined is None:
             combined = vs
         else:
-            # FAISS merge — this is the key multi-PDF technique
             combined.merge_from(vs)
-            print(f"Merged vectorstore — total index size: {combined.index.ntotal}")
-
-    if combined is None:
-        print("No vectorstores were built.")
     return combined
 
-
-# ── Language Detection ─────────────────────────────────────
 def detect_language(text):
-    """
-    Simple language detection using langdetect.
-    Falls back to English if detection fails.
-    """
     try:
         from langdetect import detect
-        lang = detect(text)
-        print(f"Detected language: {lang}")
-        return lang
+        return detect(text)
     except Exception:
         return "en"
 
-
-# ── Get Answer (with memory + multilingual) ───────────────
 def get_answer(question, vectorstore, chat_history=None):
-    """
-    Args:
-        question: user's question (any language)
-        vectorstore: FAISS vectorstore
-        chat_history: list of {"role": "user"/"assistant", "content": "..."}
-    """
     if chat_history is None:
         chat_history = []
-
-    # Step 1 — Detect user's language
+    
     user_lang = detect_language(question)
-
-    # Step 2 — Retrieve relevant chunks
     docs = vectorstore.similarity_search(question, k=5)
 
-    print(f"\n{'='*50}")
-    print(f"Question: {question}")
-    print(f"Language detected: {user_lang}")
-    print(f"Docs retrieved: {len(docs)}")
-    for i, doc in enumerate(docs):
-        print(f"Chunk {i+1} (page {doc.metadata.get('page','?')}): {doc.page_content[:150]}")
-    print(f"{'='*50}\n")
+    if len(docs) > 2:
+        docs = rerank_docs(question, docs)
 
     if not docs:
         return "Could not find relevant content. Try rephrasing.", []
 
-    # Step 3 — Build context from retrieved chunks
-    context = "\n\n".join([d.page_content.strip() for d in docs])
+    context = "\n\n".join(
+        [
+            f"[Source: Page {d.metadata.get('page', '?')}]\n{d.page_content.strip()}"
+            for d in docs
+        ]
+    )
 
-    # Step 4 — Build conversation history string for memory
+    if len(context) < 120:
+        return "The document does not contain enough information.", []
+
     history_text = ""
     if chat_history:
-        # Only use last 6 messages to avoid token overflow
-        recent = chat_history[-6:]
-        for msg in recent:
+        for msg in chat_history[-6:]:
             role = "User" if msg["role"] == "user" else "Assistant"
             history_text += f"{role}: {msg['content']}\n"
 
-    # Step 5 — Build multilingual prompt
     lang_instruction = ""
     if user_lang != "en":
-        lang_instruction = f"\nIMPORTANT: The user asked in language code '{user_lang}'. You MUST respond in that same language."
+        lang_instruction = f"\nIMPORTANT: Respond in language '{user_lang}'."
 
-    prompt = f"""You are a helpful multilingual document assistant.
-
+    prompt = f"""You are a helpful document assistant.
 Instructions:
-- Answer ONLY using the provided document context below.
-- If the question refers to previous conversation, use the conversation history.
-- If the answer is not in the context, say: "The document does not contain enough information."
-- Be clear, structured, and concise.{lang_instruction}
 
+Answer using ONLY the provided context.
+Do NOT use external knowledge.
+If the answer is not present, say: "The document does not contain enough information."
+Use only relevant information.
+Keep answers clear and structured.
+Include exact numbers if available.{lang_instruction}
 --- Conversation History ---
 {history_text if history_text else "No previous conversation."}
-
 --- Document Context ---
 {context}
-
---- Current Question ---
+--- Question ---
 {question}
-
 Answer:"""
 
     try:
-        response = client.chat.completions.create(
+        response = get_client().chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are a multilingual document assistant. Always answer in the same language the user used. Language detected: {user_lang}."
+                    "content": f"Answer in the same language as user. Language: {user_lang}"
                 },
                 {
                     "role": "user",
@@ -183,7 +148,7 @@ Answer:"""
                 }
             ],
             temperature=0.2,
-            max_tokens=1024
+            max_tokens=800,
         )
         answer = response.choices[0].message.content.strip()
 
@@ -193,66 +158,35 @@ Answer:"""
 
     return answer, docs
 
-
-# ── Auto Summary on Upload ─────────────────────────────────
 def generate_summary(vectorstore):
-    """
-    Generates a short summary of the uploaded document(s).
-    Called automatically after upload.
-    """
     try:
-        # Grab a broad sample of chunks
-        docs = vectorstore.similarity_search("overview summary introduction", k=6)
+        docs = vectorstore.similarity_search("overview summary", k=4)
         context = "\n\n".join([d.page_content.strip() for d in docs])
+        prompt = f"""Write a short summary:\n{context}"""
 
-        prompt = f"""Based on the following document content, write a short 3-5 sentence summary 
-of what this document is about. Be concise and clear.
-
-Content:
-{context}
-
-Summary:"""
-
-        response = client.chat.completions.create(
+        response = get_client().chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
-            max_tokens=300
+            max_tokens=200,
         )
         return response.choices[0].message.content.strip()
+    except Exception:
+        return ""
 
-    except Exception as e:
-        return f"Could not generate summary: {str(e)}"
-
-
-# ── Suggested Questions ────────────────────────────────────
 def generate_suggested_questions(vectorstore):
-    """
-    Generates 3 relevant questions the user could ask about the document.
-    """
     try:
-        docs = vectorstore.similarity_search("main topics key points", k=4)
+        docs = vectorstore.similarity_search("main topics", k=3)
         context = "\n\n".join([d.page_content.strip() for d in docs])
+        prompt = f"""Generate 3 questions:\n{context}"""
 
-        prompt = f"""Based on the following document content, generate exactly 3 interesting 
-questions a user might want to ask. Return ONLY the 3 questions, one per line, 
-no numbering, no extra text.
-
-Content:
-{context}
-
-Questions:"""
-
-        response = client.chat.completions.create(
+        response = get_client().chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
-            max_tokens=200
+            max_tokens=150,
         )
         raw = response.choices[0].message.content.strip()
-        questions = [q.strip() for q in raw.split("\n") if q.strip()]
-        return questions[:3]
-
-    except Exception as e:
-        print(f"Error generating questions: {e}")
+        return [q.strip() for q in raw.split("\n") if q.strip()][:3]
+    except Exception:
         return []
