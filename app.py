@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── Custom CSS: Light Theme ────────────────────────────────────────────────────
+# ── Custom CSS
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -377,7 +377,7 @@ hr {
 """, unsafe_allow_html=True)
 
 
-# ── Session State Init ─────────────────────────────────────────────────────────
+# ── Session State Init ──
 for key, default in {
     "chat_history": [],
     "vectorstore": None,
@@ -389,7 +389,7 @@ for key, default in {
         st.session_state[key] = default
 
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
+# ── Sidebar ──
 with st.sidebar:
     st.markdown("<h1>QueryLayer</h1>", unsafe_allow_html=True)
     st.markdown(
@@ -398,7 +398,7 @@ with st.sidebar:
     )
     st.divider()
 
-    # ── Upload section ─────────────────────────────────────────────────────────
+    # ── Upload section ──
     st.markdown('<div class="ql-section-label">Upload Documents</div>', unsafe_allow_html=True)
 
     uploaded_files = st.file_uploader(
@@ -440,7 +440,7 @@ with st.sidebar:
             else:
                 st.error("Failed to process PDFs. Check your files and try again.")
 
-    # ── Loaded documents ───────────────────────────────────────────────────────
+    # ── Loaded documents --
     if st.session_state.pdf_names:
         st.divider()
         st.markdown('<div class="ql-section-label">Loaded Documents</div>', unsafe_allow_html=True)
@@ -450,7 +450,7 @@ with st.sidebar:
         )
         st.markdown(pills_html, unsafe_allow_html=True)
 
-    # ── Multilingual note ──────────────────────────────────────────────────────
+    # ── Multilingual note ──
     st.divider()
     st.markdown(
         '<div class="ql-section-label">Languages</div>'
@@ -459,7 +459,7 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-    # ── Clear button ───────────────────────────────────────────────────────────
+    # ── Clear button 
     st.divider()
     if st.button("Clear Everything", use_container_width=True):
         st.session_state.chat_history = []
@@ -470,10 +470,10 @@ with st.sidebar:
         st.rerun()
 
 
-# ── Main Area ──────────────────────────────────────────────────────────────────
+# ── Main Area ──
 
 if st.session_state.vectorstore is None:
-    # ── Empty state ────────────────────────────────────────────────────────────
+    # ── Empty state ──
     st.markdown("""
         <div style="margin-top: 20px;">
             <div class="ql-title">Query<span>Layer</span></div>
@@ -493,7 +493,7 @@ if st.session_state.vectorstore is None:
         </div>
     """, unsafe_allow_html=True)
 
-    # ── Feature cards ──────────────────────────────────────────────────────────
+    # ── Feature cards ───
     c1, c2, c3 = st.columns(3)
     with c1:
         st.markdown("""
@@ -521,7 +521,7 @@ if st.session_state.vectorstore is None:
         """, unsafe_allow_html=True)
 
 else:
-    # ── Header ─────────────────────────────────────────────────────────────────
+    # ── Header ───
     st.markdown("""
         <div style="margin-bottom:16px;">
             <div class="ql-title">Query<span>Layer</span></div>
@@ -529,7 +529,7 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-    # ── Summary ────────────────────────────────────────────────────────────────
+
     if st.session_state.summary:
         with st.expander("Document Summary", expanded=True):
             st.write(st.session_state.summary)

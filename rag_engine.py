@@ -354,7 +354,7 @@ INSTRUCTIONS:
 
 Answer:"""
 
-    # ── LLM call ──────────────────────────────────────────────────────────────
+    # ── LLM call 
     try:
         response = get_client().chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -384,7 +384,7 @@ Answer:"""
     return answer, docs
 
 
-# ── Summary Generation ────────────────────────────────────────────────────────
+# ── Summary Generation 
 
 def generate_summary(vectorstore):
     """
@@ -427,7 +427,7 @@ Executive Summary:"""
         return ""
 
 
-# ── Suggested Questions Generation ────────────────────────────────────────────
+# ── Suggested Questions Generation 
 
 def generate_suggested_questions(vectorstore):
     """
@@ -475,7 +475,7 @@ Questions:"""
         raw = response.choices[0].message.content.strip()
 
         # ── Robust parser ──────────────────────────────────────────────────────
-        # Handles: numbered (1. Q), bulleted (- Q), or plain lines
+        
         questions = []
         for line in raw.split("\n"):
             line = line.strip()
