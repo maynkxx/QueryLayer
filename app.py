@@ -26,7 +26,7 @@ html, body, [class*="css"] {
 }
 
 .stApp {
-    background-color: #F7F5F2;
+    background: linear-gradient(to bottom right, #F8F9FB, #F2F4F8);
     color: #1A1A1A;
 }
 
@@ -90,39 +90,183 @@ footer {
     letter-spacing: -0.5px;
 }
 
-/* ── File uploader ── */
+/* ───────────────────────────────────────── */
+/* FILE UPLOADER */
+/* ───────────────────────────────────────── */
+
 [data-testid="stFileUploader"] {
-    background-color: #FDF9F6 !important;
-    border: 1.5px dashed #C0392B !important;
-    border-radius: 10px !important;
-    padding: 8px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
 }
+
+[data-testid="stFileUploader"]:hover {
+    border-color: #FF6B6B !important;
+    transform: translateY(-2px);
+}
+
+/* ───────────────────────────────────────── */
+/* DROPZONE */
+/* ───────────────────────────────────────── */
 
 [data-testid="stFileUploaderDropzone"] {
-    background-color: #FDF9F6 !important;
+    background-color: #FFFFFF !important;
+    border: 1px solid #E5E7EB !important;
+    border-radius: 14px !important;
+    padding: 20px !important;
 }
 
+/* Upload instructions */
 [data-testid="stFileUploaderDropzoneInstructions"] * {
     color: #8C8078 !important;
+    font-weight: 500 !important;
 }
 
-/* Fix the uploaded file pill — dark background with unreadable text */
+/* ───────────────────────────────────────── */
+/* ACTUAL UPLOAD BUTTON */
+/* ───────────────────────────────────────── */
+
+[data-testid="stFileUploader"] button {
+    background-color: #FFFFFF !important;
+    color: #C0392B !important;
+    border: 2px solid #C0392B !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    padding: 10px 18px !important;
+    transition: all 0.25s ease !important;
+    box-shadow: none !important;
+}
+
+/* Button text */
+[data-testid="stFileUploader"] button span {
+    color: #C0392B !important;
+    font-weight: 600 !important;
+}
+
+/* Button icon */
+[data-testid="stFileUploader"] button svg {
+    fill: #C0392B !important;
+    color: #C0392B !important;
+}
+
+/* Hover */
+[data-testid="stFileUploader"] button:hover {
+    background-color: #C0392B !important;
+    border-color: #C0392B !important;
+}
+
+/* Hover text */
+[data-testid="stFileUploader"] button:hover span {
+    color: #FFFFFF !important;
+}
+
+/* Hover icon */
+[data-testid="stFileUploader"] button:hover svg {
+    fill: #FFFFFF !important;
+    color: #FFFFFF !important;
+}
+
+/* ───────────────────────────────────────── */
+/* UPLOADED FILE CARD */
+/* ───────────────────────────────────────── */
+
 [data-testid="stFileUploaderFile"] {
-    background-color: #F2EDE8 !important;
-    border: 1px solid #E0D8D0 !important;
-    border-radius: 6px !important;
+    background: #FFFFFF !important;
+    border: 1px solid #E5E7EB !important;
+    border-radius: 14px !important;
+    padding: 10px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
 }
 
-[data-testid="stFileUploaderFile"] * {
-    color: #1A1A1A !important;
+/* Remove dark inner container */
+[data-testid="stFileUploaderFile"] section,
+[data-testid="stFileUploaderFile"] div,
+[data-testid="stFileUploaderFile"] article {
+    background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
 }
 
+/* Remove dark overlay */
+[data-testid="stFileUploaderFile"] > div {
+    background: #FFFFFF !important;
+}
+
+/* File text */
 [data-testid="stFileUploaderFileName"] {
-    color: #1A1A1A !important;
+    color: #111111 !important;
+    font-weight: 600 !important;
 }
 
 [data-testid="stFileUploaderFileData"] {
-    color: #6B6560 !important;
+    color: #6B7280 !important;
+}
+
+/* Icons */
+[data-testid="stFileUploaderFile"] svg {
+    fill: #111111 !important;
+    color: #111111 !important;
+}
+
+/* File name */
+[data-testid="stFileUploaderFileName"] {
+    color: #111111 !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+}
+
+/* File size */
+[data-testid="stFileUploaderFileData"] {
+    color: #666666 !important;
+}
+
+/* All inner text/icons */
+[data-testid="stFileUploaderFile"] * {
+    color: #111111 !important;
+    fill: #111111 !important;
+}
+
+/* PDF icon */
+[data-testid="stFileUploaderFile"] svg {
+    color: #111111 !important;
+    fill: #111111 !important;
+}
+
+/* File name */
+[data-testid="stFileUploaderFileName"] {
+    color: #111111 !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+}
+
+/* File size */
+[data-testid="stFileUploaderFileData"] {
+    color: #666666 !important;
+    font-size: 0.8rem !important;
+}
+
+/* Inner content */
+[data-testid="stFileUploaderFile"] * {
+    color: #111111 !important;
+    fill: #111111 !important;
+}
+
+/* Remove dark nested backgrounds */
+[data-testid="stFileUploaderFile"] section {
+    background: #FFFFFF !important;
+}
+
+/* File icon */
+[data-testid="stFileUploaderFile"] svg {
+    color: #111111 !important;
+    fill: #111111 !important;
+}
+
+/* Hover */
+[data-testid="stFileUploaderFile"]:hover {
+    border-color: #C0392B !important;
+    box-shadow: 0 2px 10px rgba(192,57,43,0.15);
 }
 
 /* ── Buttons ── */
@@ -164,9 +308,38 @@ footer {
 
 /* ── Chat input ── */
 [data-testid="stChatInput"] {
+    background: #FFFFFF !important;
+    border: 1.5px solid #E5E7EB !important;
+    border-radius: 20px !important;
+    padding: 8px !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04) !important;
+    transition: all 0.25s ease !important;
+}
+
+/* Hover */
+[data-testid="stChatInput"]:hover {
+    border-color: #D1D5DB !important;
+}
+
+/* Focus */
+[data-testid="stChatInput"]:focus-within {
+    border-color: #C0392B !important;
+    box-shadow: 0 0 0 3px rgba(192,57,43,0.10) !important;
+}
+
+/* Textarea */
+[data-testid="stChatInput"] textarea {
     background-color: #FFFFFF !important;
-    border: 1.5px solid #C0392B !important;
-    border-radius: 12px !important;
+    color: #111111 !important;
+    font-size: 0.96rem !important;
+    padding: 10px !important;
+    border: none !important;
+}
+
+/* Placeholder */
+[data-testid="stChatInput"] textarea::placeholder {
+    color: #6B7280 !important;
+    opacity: 1 !important;
 }
 
 [data-testid="stChatInput"] textarea {
@@ -235,14 +408,23 @@ footer {
 
 /* ── Expander ── */
 [data-testid="stExpander"] {
-    background-color: #FFFFFF !important;
+    background: #FFFFFF !important;
     border: 1px solid #E5E0D8 !important;
-    border-radius: 10px !important;
+    border-radius: 18px !important;
+    overflow: hidden !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06) !important;
 }
 
+/* Header */
 [data-testid="stExpander"] summary {
-    color: #C0392B !important;
+    background: #FFFFFF !important;
+    color: #111111 !important;
     font-weight: 600 !important;
+    padding: 14px 18px !important;
+    border-radius: 18px !important;
+    font-size: 0.95rem !important;
+    letter-spacing: 0.3px;
+    border-bottom: 1px solid #E5E7EB !important;
 }
 
 [data-testid="stExpander"] p,
@@ -614,3 +796,4 @@ else:
             mime="text/plain",
             use_container_width=True
         )
+
