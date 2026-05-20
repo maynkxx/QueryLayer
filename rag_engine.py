@@ -474,7 +474,7 @@ Questions:"""
         )
         raw = response.choices[0].message.content.strip()
 
-        # ── Robust parser ──────────────────────────────────────────────────────
+        # Robust parser 
         
         questions = []
         for line in raw.split("\n"):

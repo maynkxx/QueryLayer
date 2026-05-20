@@ -1,10 +1,8 @@
 from rag_engine import build_vectorstore
 from rag_engine import get_answer
 
-# Build vector DB
 vectorstore = build_vectorstore("Contest Absence and Marking Policy.pdf")
 
-# Ask question
 question = "When is absence allowed in contests?"
 
 answer, docs = get_answer(question, vectorstore)

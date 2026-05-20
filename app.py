@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── Custom CSS
+# Custom CSS
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -90,9 +90,9 @@ footer {
     letter-spacing: -0.5px;
 }
 
-/* ───────────────────────────────────────── */
+
 /* FILE UPLOADER */
-/* ───────────────────────────────────────── */
+
 
 [data-testid="stFileUploader"] {
     background: transparent !important;
@@ -107,9 +107,7 @@ footer {
     transform: translateY(-2px);
 }
 
-/* ───────────────────────────────────────── */
 /* DROPZONE */
-/* ───────────────────────────────────────── */
 
 [data-testid="stFileUploaderDropzone"] {
     background-color: #FFFFFF !important;
@@ -124,9 +122,9 @@ footer {
     font-weight: 500 !important;
 }
 
-/* ───────────────────────────────────────── */
+
 /* ACTUAL UPLOAD BUTTON */
-/* ───────────────────────────────────────── */
+
 
 [data-testid="stFileUploader"] button {
     background-color: #FFFFFF !important;
@@ -168,9 +166,9 @@ footer {
     color: #FFFFFF !important;
 }
 
-/* ───────────────────────────────────────── */
+
 /* UPLOADED FILE CARD */
-/* ───────────────────────────────────────── */
+
 
 [data-testid="stFileUploaderFile"] {
     background: #FFFFFF !important;
@@ -559,7 +557,7 @@ hr {
 """, unsafe_allow_html=True)
 
 
-# ── Session State Init ──
+#  Session State Init
 for key, default in {
     "chat_history": [],
     "vectorstore": None,
@@ -571,7 +569,7 @@ for key, default in {
         st.session_state[key] = default
 
 
-# ── Sidebar ──
+# Sidebar 
 with st.sidebar:
     st.markdown("<h1>QueryLayer</h1>", unsafe_allow_html=True)
     st.markdown(
@@ -580,7 +578,7 @@ with st.sidebar:
     )
     st.divider()
 
-    # ── Upload section ──
+    # Upload section 
     st.markdown('<div class="ql-section-label">Upload Documents</div>', unsafe_allow_html=True)
 
     uploaded_files = st.file_uploader(
@@ -622,7 +620,7 @@ with st.sidebar:
             else:
                 st.error("Failed to process PDFs. Check your files and try again.")
 
-    # ── Loaded documents --
+    # Loaded documents 
     if st.session_state.pdf_names:
         st.divider()
         st.markdown('<div class="ql-section-label">Loaded Documents</div>', unsafe_allow_html=True)
@@ -632,7 +630,7 @@ with st.sidebar:
         )
         st.markdown(pills_html, unsafe_allow_html=True)
 
-    # ── Multilingual note ──
+    # Multilingual note
     st.divider()
     st.markdown(
         '<div class="ql-section-label">Languages</div>'
@@ -641,7 +639,7 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-    # ── Clear button 
+    # Clear button 
     st.divider()
     if st.button("Clear Everything", use_container_width=True):
         st.session_state.chat_history = []
@@ -652,10 +650,10 @@ with st.sidebar:
         st.rerun()
 
 
-# ── Main Area ──
+# Main Area 
 
 if st.session_state.vectorstore is None:
-    # ── Empty state ──
+    #  Empty state 
     st.markdown("""
         <div style="margin-top: 20px;">
             <div class="ql-title">Query<span>Layer</span></div>
@@ -675,7 +673,7 @@ if st.session_state.vectorstore is None:
         </div>
     """, unsafe_allow_html=True)
 
-    # ── Feature cards ───
+    # Feature cards 
     c1, c2, c3 = st.columns(3)
     with c1:
         st.markdown("""
@@ -703,7 +701,7 @@ if st.session_state.vectorstore is None:
         """, unsafe_allow_html=True)
 
 else:
-    # ── Header ───
+    # Header 
     st.markdown("""
         <div style="margin-bottom:16px;">
             <div class="ql-title">Query<span>Layer</span></div>
@@ -716,7 +714,7 @@ else:
         with st.expander("Document Summary", expanded=True):
             st.write(st.session_state.summary)
 
-    # ── Suggested questions ────────────────────────────────────────────────────
+    # Suggested questions 
     if st.session_state.suggested_questions:
         st.markdown(
             '<div class="ql-section-label" style="margin-top:8px;">Suggested Questions</div>',
@@ -741,7 +739,7 @@ else:
 
     st.divider()
 
-    # ── Chat history ───────────────────────────────────────────────────────────
+    # Chat history 
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
             st.write(message["content"])
@@ -761,7 +759,7 @@ else:
                     if i < len(message["sources"]):
                         st.divider()
 
-    # ── Chat input ─────────────────────────────────────────────────────────────
+    # Chat input 
     question = st.chat_input("Ask anything about your documents...")
 
     if question:
@@ -781,7 +779,7 @@ else:
         })
         st.rerun()
 
-    # ── Export ─────────────────────────────────────────────────────────────────
+    #  Export 
     if st.session_state.chat_history:
         st.divider()
         export_text = ""

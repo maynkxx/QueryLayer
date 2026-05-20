@@ -48,7 +48,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── In-Memory Session Store ────
+#  In-Memory Session Store 
 # Stores vectorstore + chat history per session.
 # Resets on server restart — intentional for a demo-scale project.
 # Structure: { session_id: { "vectorstore": ..., "chat_history": [...], "filename": ... } }
@@ -56,7 +56,7 @@ app.add_middleware(
 sessions: dict = {}
 
 
-# ── Request / Response Models ───
+# Request / Response Models
 
 class ChatRequest(BaseModel):
     session_id: str
@@ -103,7 +103,7 @@ class HealthResponse(BaseModel):
     active_sessions: int
 
 
-# ── Helper ───
+# Helper 
 
 def get_session_or_404(session_id: str) -> dict:
     """Fetch a session by ID or raise a 404 with a clear message."""
@@ -131,7 +131,7 @@ def serialize_sources(docs: list) -> list[dict]:
     return result
 
 
-# ── Routes ───
+# Routes
 
 @app.get(
     "/health",
@@ -170,21 +170,21 @@ async def upload_pdf(file: UploadFile = File(...)):
 
     **Returns:** A `session_id` you must pass to `/chat` and `/summary`.
     """
-    # ── Validate file type ────
+    # Validate file type 
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=400,
             detail="Invalid file type. Only PDF files are accepted."
         )
 
-    # ── Save to temp file ───
+    # Save to temp file
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             shutil.copyfileobj(file.file, tmp)
             tmp_path = tmp.name
 
-        # ── Build vectorstore ──────────────────────────────────────────────────
+        # Build vectorstore 
         vectorstore = build_vectorstore_from_file(tmp_path)
 
     except ValueError as e:
@@ -198,7 +198,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
-    # ── Create session ─────────────────────────────────────────────────────────
+    # Create session 
     session_id = str(uuid.uuid4())
     sessions[session_id] = {
         "vectorstore": vectorstore,
@@ -206,7 +206,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         "filename": file.filename,
     }
 
-    # ── Generate summary + suggested questions 
+    # Generate summary + suggested questions 
     summary = generate_summary(vectorstore)
     suggested_questions = generate_suggested_questions(vectorstore)
 
@@ -239,7 +239,7 @@ def chat(request: ChatRequest):
 
     **Requires:** A valid `session_id` from `POST /upload`.
     """
-    # ── Validate input 
+    # Validate input 
     if not request.question or not request.question.strip():
         raise HTTPException(
             status_code=400,
@@ -248,7 +248,7 @@ def chat(request: ChatRequest):
 
     session = get_session_or_404(request.session_id)
 
-    # ── Get answer 
+    #  Get answer 
     try:
         answer, docs = get_answer(
             question=request.question.strip(),
@@ -261,7 +261,7 @@ def chat(request: ChatRequest):
             detail=f"Error generating answer: {str(e)}"
         )
 
-    # ── Update chat history in session ─────────────────────────────────────────
+    # Update chat history in session
     session["chat_history"].append({"role": "user", "content": request.question.strip()})
     session["chat_history"].append({"role": "assistant", "content": answer})
 
